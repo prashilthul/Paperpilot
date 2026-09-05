@@ -1,0 +1,211 @@
+{
+  "papers": {
+    "total": 1,
+    "items": [
+      {
+        "title": "Prashil ThulRaipur, India | prashil1411@gmail.com | prashil.is-a.dev | github.com/prashilthul | linkedin.com/in/prashilthul",
+        "chunks": 5,
+        "sections": 5,
+        "status": "ready"
+      }
+    ]
+  },
+  "metrics": {
+    "health_score": 75,
+    "components": {
+      "latency": {
+        "score": 86,
+        "weight": 0.33
+      },
+      "empty_result_rate": {
+        "score": 38,
+        "weight": 0.33
+      },
+      "citation_accuracy": {
+        "score": 100,
+        "weight": 0.34
+      }
+    },
+    "details": {
+      "latency_percentiles": [
+        {
+          "step": "embed",
+          "p50_ms": 458,
+          "p95_ms": 753,
+          "p99_ms": 1062.6,
+          "sample_count": 13
+        },
+        {
+          "step": "generate",
+          "p50_ms": 1248,
+          "p95_ms": 7378.6,
+          "p99_ms": 8926.1,
+          "sample_count": 13
+        },
+        {
+          "step": "judge",
+          "p50_ms": 15057.5,
+          "p95_ms": 22984.2,
+          "p99_ms": 23688.8,
+          "sample_count": 2
+        },
+        {
+          "step": "lexical_search",
+          "p50_ms": 1,
+          "p95_ms": 20.4,
+          "p99_ms": 42.5,
+          "sample_count": 13
+        },
+        {
+          "step": "query_rewrite",
+          "p50_ms": 2587,
+          "p95_ms": 3707.9,
+          "p99_ms": 3836,
+          "sample_count": 4
+        },
+        {
+          "step": "rerank",
+          "p50_ms": 334,
+          "p95_ms": 1440,
+          "p99_ms": 1444.8,
+          "sample_count": 13
+        },
+        {
+          "step": "vector_search",
+          "p50_ms": 0,
+          "p95_ms": 9.2,
+          "p99_ms": 13,
+          "sample_count": 13
+        }
+      ],
+      "empty_result_rate_24h": 0.6154,
+      "avg_citation_accuracy": 0
+    },
+    "per_paper": []
+  },
+  "timeseries": {
+    "range_days": 7,
+    "data_points": 1
+  },
+  "traces": {
+    "total": 13,
+    "items": [
+      {
+        "trace_id": "cd422b74-46c2-4f23-a9dc-53b827cbf039",
+        "created_at": "2026-09-05T05:58:20.184724",
+        "total_duration_ms": 1727,
+        "span_count": 6,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace cd422b74"
+      },
+      {
+        "trace_id": "fae8db85-8e43-4c40-80bc-75212b5ac6cf",
+        "created_at": "2026-09-05T05:58:11.246077",
+        "total_duration_ms": 5590,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace fae8db85"
+      },
+      {
+        "trace_id": "82350092-69df-487e-be66-c6f5f2b701d7",
+        "created_at": "2026-09-05T05:58:03.457234",
+        "total_duration_ms": 478,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 82350092"
+      },
+      {
+        "trace_id": "f538b352-2a7e-44f3-9f7c-acea9bfa1a8a",
+        "created_at": "2026-09-05T05:57:44.811318",
+        "total_duration_ms": 13117,
+        "span_count": 6,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace f538b352"
+      },
+      {
+        "trace_id": "7022b179-4cd6-4fff-b8e3-09f5dec88dbf",
+        "created_at": "2026-09-05T05:57:36.470425",
+        "total_duration_ms": 3254,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 7022b179"
+      },
+      {
+        "trace_id": "1f22e178-cf04-465a-9ea1-47a849b52099",
+        "created_at": "2026-09-05T05:57:26.809113",
+        "total_duration_ms": 6779,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 1f22e178"
+      },
+      {
+        "trace_id": "a2c193e2-5410-4f41-a669-d0ddab7ba2c7",
+        "created_at": "2026-09-05T05:57:20.293843",
+        "total_duration_ms": 3037,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace a2c193e2"
+      },
+      {
+        "trace_id": "9e4c0156-436d-434b-a018-7108f6308c12",
+        "created_at": "2026-09-05T05:56:07.527935",
+        "total_duration_ms": 2964,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 9e4c0156"
+      },
+      {
+        "trace_id": "3c04efe6-4b2a-4d41-a9fc-87d34baa8938",
+        "created_at": "2026-09-05T05:55:25.293638",
+        "total_duration_ms": 1202,
+        "span_count": 5,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 3c04efe6"
+      },
+      {
+        "trace_id": "7bea1cad-3ca7-4ece-b6a8-fbb485032add",
+        "created_at": "2026-09-05T05:51:10.021550",
+        "total_duration_ms": 27009,
+        "span_count": 7,
+        "has_error": false,
+        "has_fallback": false,
+        "query": "Trace 7bea1cad"
+      }
+    ]
+  },
+  "tokenUsage": {
+    "total_input_tokens": 3440,
+    "total_output_tokens": 2174,
+    "total_tokens": 5614,
+    "daily": [
+      {
+        "date": "2026-09-05",
+        "input_tokens": 3440,
+        "output_tokens": 2174,
+        "total_tokens": 5614
+      }
+    ]
+  },
+  "rerankerStats": {
+    "total_calls": 13,
+    "total_fallbacks": 0,
+    "fallback_rate_pct": 0,
+    "daily": [
+      {
+        "date": "2026-09-05",
+        "total_calls": 13,
+        "fallback_calls": 0,
+        "fallback_rate_pct": 0
+      }
+    ]
+  }
+}

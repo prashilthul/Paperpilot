@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import settings
-from app.services.generator import _SYSTEM_PROMPT, _build_context, _extract_citations
+from app.services.generator import _SYSTEM_PROMPT, _build_context, _extract_citations, _extractive_fallback
 from app.services.retriever import ChunkResult
 from app.services.tracing import Tracer
 
@@ -21,11 +21,13 @@ _BASE = settings.OPENROUTER_BASE_URL or "https://openrouter.ai/api/v1"
 async def stream_generate(
     query: str,
     chunks: list[ChunkResult],
-    model: str = "openrouter/free",
+    model: str | None = None,
     temperature: float = 0.1,
     session_id: str | None = None,
     tracer: Tracer | None = None,
 ) -> AsyncGenerator[str, None]:
+    if model is None:
+        model = settings.GENERATOR_MODEL or "z-ai/glm-5.2:free"
     trace_id = tracer.trace_id if tracer else str(uuid.uuid4())
 
     if not query:
@@ -125,7 +127,13 @@ async def stream_generate(
 
         spans_summary = tracer.get_trace_spans_summary()
         if stream_error:
-            yield f"event: error\ndata: {json.dumps({'message': str(stream_error)})}\n\n"
+            if "429" in str(stream_error) or "rate limit" in str(stream_error).lower():
+                logger.warning("Stream generation hit 429 rate limit. Yielding extractive fallback.")
+                fb = _extractive_fallback(query, chunks)
+                yield f"event: token\ndata: {json.dumps({'text': fb.answer})}\n\n"
+                yield f"event: done\ndata: {json.dumps({'citations': [c.__dict__ for c in fb.citations], 'trace_id': trace_id, 'trace_spans': spans_summary, 'session_id': session_id})}\n\n"
+            else:
+                yield f"event: error\ndata: {json.dumps({'message': str(stream_error)})}\n\n"
         else:
             yield f"event: done\ndata: {json.dumps({'citations': [c.__dict__ for c in citations], 'trace_id': trace_id, 'trace_spans': spans_summary, 'session_id': session_id})}\n\n"
     else:
@@ -145,6 +153,12 @@ async def stream_generate(
         citations = _extract_citations(full_text, chunks)
         spans_summary = tracer.get_trace_spans_summary() if tracer else []
         if stream_error:
-            yield f"event: error\ndata: {json.dumps({'message': str(stream_error)})}\n\n"
+            if "429" in str(stream_error) or "rate limit" in str(stream_error).lower():
+                logger.warning("Stream generation hit 429 rate limit. Yielding extractive fallback.")
+                fb = _extractive_fallback(query, chunks)
+                yield f"event: token\ndata: {json.dumps({'text': fb.answer})}\n\n"
+                yield f"event: done\ndata: {json.dumps({'citations': [c.__dict__ for c in fb.citations], 'trace_id': trace_id, 'trace_spans': spans_summary, 'session_id': session_id})}\n\n"
+            else:
+                yield f"event: error\ndata: {json.dumps({'message': str(stream_error)})}\n\n"
         else:
             yield f"event: done\ndata: {json.dumps({'citations': [c.__dict__ for c in citations], 'trace_id': trace_id, 'trace_spans': spans_summary, 'session_id': session_id})}\n\n"

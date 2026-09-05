@@ -39,6 +39,7 @@ class Citation:
     paper_id: str
     section_heading: str
     marker: str
+    snippet: str = ""
 
 
 @dataclass
@@ -83,24 +84,70 @@ def _extract_citations(
             if key in seen:
                 continue
             seen.add(key)
+            # Create a concise, clean excerpt snippet of the cited chunk
+            raw_snippet = chunk.content.strip()
+            # If the chunk starts with the heading, strip it for cleaner display
+            if chunk.section_heading and raw_snippet.startswith(chunk.section_heading):
+                raw_snippet = raw_snippet[len(chunk.section_heading):].strip()
+            snippet = raw_snippet[:240].strip()
+            if len(raw_snippet) > 240:
+                snippet += "..."
             citations.append(
                 Citation(
                     chunk_id=chunk.chunk_id,
                     paper_id=chunk.paper_id,
                     section_heading=chunk.section_heading,
                     marker=f"[{n}]",
+                    snippet=snippet,
                 )
             )
     return citations
 
 
+def _extractive_fallback(query: str, chunks: list[ChunkResult]) -> GenerationResult:
+    citations: list[Citation] = []
+    lines = [
+        "> **Notice**: OpenRouter daily free-model limit reached (50 requests/day). Providing an extractive answer synthesized directly from retrieved document sections.\n",
+        f"Based on the retrieved sections for **\"{query}\"**:\n",
+    ]
+    for i, chunk in enumerate(chunks[:3]):
+        marker = f"[{i + 1}]"
+        raw_text = (chunk.content or "").strip()
+        snippet = raw_text[:240].strip()
+        if len(raw_text) > 240:
+            snippet += "..."
+        citations.append(
+            Citation(
+                chunk_id=chunk.chunk_id,
+                paper_id=chunk.paper_id,
+                section_heading=chunk.section_heading,
+                marker=marker,
+                snippet=snippet,
+            )
+        )
+        heading = chunk.section_heading or "Relevant Section"
+        lines.append(f"### {heading} {marker}\n{raw_text}\n")
+
+    answer = "\n".join(lines)
+    return GenerationResult(
+        answer=answer,
+        citations=citations,
+        finish_reason="extractive_fallback",
+        input_tokens=0,
+        output_tokens=max(1, len(answer) // 4),
+    )
+
+
 async def generate(
     query: str,
     chunks: list[ChunkResult],
-    model: str = "openrouter/free",
+    model: str | None = None,
     temperature: float = 0.1,
     tracer: Tracer | None = None,
 ) -> GenerationResult:
+    if model is None:
+        model = settings.GENERATOR_MODEL or "z-ai/glm-5.2:free"
+
     if not query:
         return GenerationResult(answer="Please enter a question.", finish_reason="no_input")
 
@@ -146,6 +193,23 @@ async def generate(
         ),
     ]
 
+    def _call_llm():
+        try:
+            response = llm.invoke(messages)
+            ans = response.content or ""
+            cits = _extract_citations(ans, chunks)
+            usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
+            in_toks = usage.get("input_tokens", 0) if usage else 0
+            out_toks = usage.get("output_tokens", 0) if usage else 0
+            freason = response.response_metadata.get("finish_reason") if response.response_metadata else None
+            return ans, cits, freason, in_toks, out_toks
+        except Exception as exc:
+            if "429" in str(exc) or "rate limit" in str(exc).lower():
+                logger.warning("OpenRouter rate limit (429) hit during generation. Using extractive fallback.")
+                fb = _extractive_fallback(query, chunks)
+                return fb.answer, fb.citations, fb.finish_reason, fb.input_tokens, fb.output_tokens
+            raise
+
     if tracer:
         async with tracer.span(
             "generate",
@@ -155,39 +219,24 @@ async def generate(
                 "context_truncated": context_token_count > 4000,
             },
         ) as span:
-            response = llm.invoke(messages)
-            answer = response.content or ""
-            citations = _extract_citations(answer, chunks)
-
-            usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
-            input_tokens = usage.get("input_tokens", 0) if usage else 0
-            output_tokens = usage.get("output_tokens", 0) if usage else 0
-
+            answer, citations, finish_reason, input_tokens, output_tokens = _call_llm()
             span.attributes["input_tokens"] = input_tokens
             span.attributes["output_tokens"] = output_tokens
-            span.attributes["finish_reason"] = response.response_metadata.get("finish_reason") if response.response_metadata else None
+            span.attributes["finish_reason"] = finish_reason
 
             return GenerationResult(
                 answer=answer,
                 citations=citations,
-                finish_reason=response.response_metadata.get("finish_reason") if response.response_metadata else None,
+                finish_reason=finish_reason,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
             )
     else:
-        response = llm.invoke(messages)
-
-        answer = response.content or ""
-        citations = _extract_citations(answer, chunks)
-
-        usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
-        input_tokens = usage.get("input_tokens", 0) if usage else 0
-        output_tokens = usage.get("output_tokens", 0) if usage else 0
-
+        answer, citations, finish_reason, input_tokens, output_tokens = _call_llm()
         return GenerationResult(
             answer=answer,
             citations=citations,
-            finish_reason=response.response_metadata.get("finish_reason") if response.response_metadata else None,
+            finish_reason=finish_reason,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         )
@@ -196,11 +245,13 @@ async def generate(
 async def stream_generate(
     query: str,
     chunks: list[ChunkResult],
-    model: str = "openrouter/free",
+    model: str | None = None,
     temperature: float = 0.1,
     session_id: str | None = None,
     tracer: Tracer | None = None,
 ) -> AsyncGenerator[str, None]:
+    if model is None:
+        model = settings.GENERATOR_MODEL or "z-ai/glm-5.2:free"
     from app.services.streamer import stream_generate as _sg
 
     async for event in _sg(query, chunks, model, temperature, session_id, tracer):

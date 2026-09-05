@@ -57,8 +57,10 @@ def should_rewrite(query: str, history: list[tuple[str, str]]) -> bool:
 async def rewrite_query(
     query: str,
     history: list[tuple[str, str]],
-    model: str = "openrouter/free",
+    model: str | None = None,
 ) -> str:
+    if model is None:
+        model = settings.GENERATOR_MODEL or "z-ai/glm-5.2:free"
     if not settings.OPENROUTER_API_KEY:
         return query
 

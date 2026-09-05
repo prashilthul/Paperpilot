@@ -1,4 +1,7 @@
+import hashlib
 import logging
+import math
+import re
 import time
 
 import httpx
@@ -13,6 +16,22 @@ _EMBED_MODEL = settings.EMBED_MODEL
 EMBEDDING_DIM = settings.EMBED_DIM
 _BATCH_SIZE = 16
 _MAX_RETRIES = 3
+
+
+def _fallback_embed(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
+    vec = [0.0] * dim
+    tokens = re.findall(r"\w+", text.lower())
+    if not tokens:
+        return vec
+    for token in tokens:
+        h = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16)
+        idx = h % dim
+        sign = 1.0 if ((h >> 10) & 1) else -1.0
+        vec[idx] += sign
+    norm = math.sqrt(sum(x * x for x in vec))
+    if norm > 0:
+        vec = [x / norm for x in vec]
+    return vec
 
 
 def _embed_batch(texts: list[str]) -> list[list[float]]:
@@ -37,14 +56,19 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         emb = item.get("embedding", [])
         if len(emb) != EMBEDDING_DIM:
             logger.warning("Embedding dimension mismatch: expected %d, got %d", EMBEDDING_DIM, len(emb))
-        results.append(emb[:EMBEDDING_DIM])
+        vec = emb[:EMBEDDING_DIM]
+        norm = sum(x * x for x in vec) ** 0.5
+        if norm > 0:
+            vec = [x / norm for x in vec]
+        results.append(vec)
 
     return results
 
 
 def _embed_with_retry(texts: list[str]) -> list[list[float]]:
     last_error: Exception | None = None
-    for attempt in range(_MAX_RETRIES):
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
             return _embed_batch(texts)
         except Exception as exc:
@@ -52,14 +76,22 @@ def _embed_with_retry(texts: list[str]) -> list[list[float]]:
             logger.warning(
                 "OpenRouter embedding attempt %d/%d failed: %s",
                 attempt + 1,
-                _MAX_RETRIES,
+                max_retries,
                 exc,
             )
-        if attempt < _MAX_RETRIES - 1:
+            # If 429 Too Many Requests, break early to fallback rather than looping
+            if "429" in str(exc):
+                break
             time.sleep(2**attempt)
 
+    if last_error and "429" in str(last_error):
+        logger.warning(
+            "OpenRouter daily free-model limit reached (429). Using deterministic local fallback embeddings."
+        )
+        return [_fallback_embed(t) for t in texts]
+
     raise RuntimeError(
-        f"OpenRouter embedding failed after {_MAX_RETRIES} attempts: {last_error}"
+        f"OpenRouter embedding failed after {max_retries} attempts: {last_error}"
     )
 
 

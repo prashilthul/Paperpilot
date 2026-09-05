@@ -386,6 +386,9 @@ def parse_pdf(file_path: str | Path | None = None, *, stream: bytes | None = Non
                     break
 
         sections = _extract_sections(blocks, body_size, threshold, abstract_end)
+        if sections and title and title != "Untitled":
+            if title.lower() not in sections[0].content.lower():
+                sections[0].content = f"{title}\n{sections[0].content}"
 
         full_text = " ".join(b.text for b in blocks)
         citations = _extract_citations(full_text)

@@ -18,10 +18,12 @@ services:
 
   backend:
     build: ./backend
-    command: sh -c "PYTHONPATH=. uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "PYTHONPATH=. uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://paperpilot:paperpilot@postgres:5432/paperpilot
+    volumes:
+      - ./backend/app:/app/app
     depends_on:
       postgres:
         condition: service_healthy

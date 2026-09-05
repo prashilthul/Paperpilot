@@ -11,7 +11,7 @@ _OVERLAP_TOKENS = 64
 _SMALL_MAX_TOKENS = 128
 _SMALL_OVERLAP_TOKENS = 32
 
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|[\n\r]+|(?<=[.!?])(?=[–—\-])|(?<=[;:])\s+")
 
 
 @dataclass

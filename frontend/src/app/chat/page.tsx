@@ -28,6 +28,9 @@ import {
   PanelLeftClose,
   Square,
   Upload,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { fetchPapers, fetchPaper, deletePaper, type Paper, type PaperDetail } from "@/lib/api";
 import { showToast } from "@/components/toast";
@@ -44,6 +47,7 @@ interface CitationData {
   paper_id: string;
   chunk_id: string;
   section_heading: string | null;
+  snippet?: string;
 }
 
 interface TraceSpanData {
@@ -108,35 +112,75 @@ async function* streamSSE(
 function CitationPopover({
   citation,
   children,
+  onInspect,
 }: {
   citation: CitationData;
   children: React.ReactNode;
+  onInspect?: (heading: string, paperId: string) => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (citation.snippet) {
+      navigator.clipboard.writeText(citation.snippet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <Popover>
-      <PopoverTrigger className="inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 text-[11px] font-medium text-slate-800 bg-slate-100 border border-slate-300 rounded hover:bg-slate-200 transition-colors cursor-pointer align-baseline">
+      <PopoverTrigger className="inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 text-[11px] font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded shadow-xs transition-all cursor-pointer align-baseline">
         {children}
       </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="w-80 p-3 shadow-lg border-slate-200">
-        <div className="space-y-1.5 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-900 font-semibold">
-            <BookOpen className="size-3.5" />
-            <span>Citation Detail</span>
+      <PopoverContent side="top" align="center" className="w-80 sm:w-96 p-3.5 shadow-xl border-slate-200 bg-white">
+        <div className="space-y-2.5 text-xs">
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-1.5 text-slate-900 font-semibold">
+              <BookOpen className="size-3.5 text-slate-700" />
+              <span>Citation {citation.marker}</span>
+            </div>
+            <Badge variant="secondary" className="text-[10px] font-medium max-w-[170px] truncate">
+              {citation.section_heading || "General Excerpt"}
+            </Badge>
           </div>
-          <div className="border-t border-slate-100 pt-1.5 space-y-1 text-slate-600">
-            <p>
-              <span className="font-medium text-slate-900">Section:</span>{" "}
-              {citation.section_heading || "General Content"}
+
+          {/* Snippet / Excerpt Text */}
+          {citation.snippet ? (
+            <div className="relative group p-2.5 bg-slate-50 border-l-2 border-slate-900 rounded-r-md text-xs text-slate-700 leading-relaxed font-sans">
+              <p className="italic select-text font-serif">
+                &ldquo;{citation.snippet}&rdquo;
+              </p>
+              <button
+                onClick={handleCopy}
+                title="Copy cited excerpt"
+                className="absolute top-1.5 right-1.5 p-1 rounded bg-white/90 border border-slate-200 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs"
+              >
+                {copied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
+              </button>
+            </div>
+          ) : (
+            <p className="text-slate-500 text-[11px]">
+              Grounded evidence from: <span className="font-semibold text-slate-700">{citation.section_heading || "Document Body"}</span>
             </p>
-            <p className="font-mono text-[11px]">
-              <span className="font-medium font-sans text-slate-900">Paper ID:</span>{" "}
-              {citation.paper_id}
-            </p>
-            <p className="font-mono text-[11px]">
-              <span className="font-medium font-sans text-slate-900">Chunk ID:</span>{" "}
-              {citation.chunk_id}
-            </p>
-          </div>
+          )}
+
+          {/* Action to Jump to Paper Inspector */}
+          {onInspect && (
+            <div className="pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs h-7 gap-1.5 justify-center font-medium bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800"
+                onClick={() => onInspect(citation.section_heading || "", citation.paper_id)}
+              >
+                <ExternalLink className="size-3 text-slate-600" />
+                <span>Locate in Paper Inspector →</span>
+              </Button>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -145,7 +189,11 @@ function CitationPopover({
 
 // --- Message content renderer ---
 
-function parseInlineMarkdown(text: string, citations?: CitationData[]): React.ReactNode[] {
+function parseInlineMarkdown(
+  text: string,
+  citations?: CitationData[],
+  onInspect?: (heading: string, paperId: string) => void
+): React.ReactNode[] {
   const regex = /(\[\d+\])|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(`[^`]+`)/g;
   const parts: React.ReactNode[] = [];
   let lastIdx = 0;
@@ -162,7 +210,7 @@ function parseInlineMarkdown(text: string, citations?: CitationData[]): React.Re
       const citation = citations?.find((c) => c.marker === `[${markerNum}]`);
       if (citation) {
         parts.push(
-          <CitationPopover key={`cit-${match.index}`} citation={citation}>
+          <CitationPopover key={`cit-${match.index}`} citation={citation} onInspect={onInspect}>
             [{markerNum}]
           </CitationPopover>
         );
@@ -203,7 +251,11 @@ function parseInlineMarkdown(text: string, citations?: CitationData[]): React.Re
   return parts;
 }
 
-function renderAssistantContent(content: string, citations?: CitationData[]) {
+function renderAssistantContent(
+  content: string,
+  citations?: CitationData[],
+  onInspect?: (heading: string, paperId: string) => void
+) {
   if (!content) return null;
 
   const lines = content.split("\n");
@@ -241,25 +293,25 @@ function renderAssistantContent(content: string, citations?: CitationData[]) {
     if (trimmed.startsWith("### ")) {
       elements.push(
         <h3 key={`h3-${idx}`} className="text-xs font-bold text-slate-900 mt-2 mb-1">
-          {parseInlineMarkdown(trimmed.slice(4), citations)}
+          {parseInlineMarkdown(trimmed.slice(4), citations, onInspect)}
         </h3>
       );
     } else if (trimmed.startsWith("## ")) {
       elements.push(
         <h2 key={`h2-${idx}`} className="text-sm font-bold text-slate-900 mt-2.5 mb-1">
-          {parseInlineMarkdown(trimmed.slice(3), citations)}
+          {parseInlineMarkdown(trimmed.slice(3), citations, onInspect)}
         </h2>
       );
     } else if (trimmed.startsWith("# ")) {
       elements.push(
         <h1 key={`h1-${idx}`} className="text-base font-bold text-slate-900 mt-3 mb-1">
-          {parseInlineMarkdown(trimmed.slice(2), citations)}
+          {parseInlineMarkdown(trimmed.slice(2), citations, onInspect)}
         </h1>
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       elements.push(
         <li key={`li-${idx}`} className="ml-4 list-disc text-sm text-slate-700 my-0.5 leading-relaxed">
-          {parseInlineMarkdown(trimmed.slice(2), citations)}
+          {parseInlineMarkdown(trimmed.slice(2), citations, onInspect)}
         </li>
       );
     } else if (/^\d+\.\s/.test(trimmed)) {
@@ -267,13 +319,13 @@ function renderAssistantContent(content: string, citations?: CitationData[]) {
       const prefixLen = match ? match[1].length : 3;
       elements.push(
         <li key={`oli-${idx}`} className="ml-4 list-decimal text-sm text-slate-700 my-0.5 leading-relaxed">
-          {parseInlineMarkdown(trimmed.slice(prefixLen), citations)}
+          {parseInlineMarkdown(trimmed.slice(prefixLen), citations, onInspect)}
         </li>
       );
     } else {
       elements.push(
         <p key={`p-${idx}`} className="text-sm leading-relaxed text-slate-700 my-0.5">
-          {parseInlineMarkdown(line, citations)}
+          {parseInlineMarkdown(line, citations, onInspect)}
         </p>
       );
     }
@@ -619,6 +671,19 @@ export default function ChatPage() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const handleInspectCitation = useCallback(
+    (heading: string, paperId: string) => {
+      setInspectorOpen(true);
+      if (paperId && paperId !== selectedPaperId) {
+        setSelectedPaperId(paperId);
+      }
+      if (heading) {
+        setSectionSearch(heading);
+      }
+    },
+    [selectedPaperId]
+  );
 
   useEffect(() => {
     scrollToBottom();
@@ -1091,7 +1156,7 @@ export default function ChatPage() {
                     {msg.streaming && !msg.content ? (
                       <PipelineLoadingAnimation />
                     ) : (
-                      renderAssistantContent(msg.content, msg.citations)
+                      renderAssistantContent(msg.content, msg.citations, handleInspectCitation)
                     )}
 
                     {msg.streaming && msg.content && (

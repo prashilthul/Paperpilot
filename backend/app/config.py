@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     FRONTEND_URL: str = ""
     LOG_LEVEL: str = "INFO"
+    GENERATOR_MODEL: str = "z-ai/glm-5.2:free"
     JUDGE_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     ENABLE_ONLINE_EVAL: bool = True
     RAG_VECTOR_THRESHOLD: float = 0.30
