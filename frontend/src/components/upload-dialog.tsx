@@ -186,8 +186,9 @@ export function UploadDialog({ trigger, buttonText = "Upload Paper", className }
               setProgressMessage("Complete");
             } else if (statusData.status === "error") {
               clearInterval(pollRef.current);
+              console.error("Ingestion failed:", statusData.error);
               setPhase("error");
-              setErrorMessage(statusData.error || "Processing failed");
+              setErrorMessage("Processing failed. Please try again.");
             }
           } catch {
             clearInterval(pollRef.current);
@@ -196,10 +197,11 @@ export function UploadDialog({ trigger, buttonText = "Upload Paper", className }
           }
         }, 2000);
       } catch (err) {
+        // Log the real cause; show a generic message so backend hostnames and
+        // raw response bodies are not shown in the dialog.
+        console.error(err);
         setPhase("error");
-        setErrorMessage(
-          err instanceof Error ? err.message : "Upload failed"
-        );
+        setErrorMessage("Upload failed. Please try again.");
       }
     },
     [validateFile]

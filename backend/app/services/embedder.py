@@ -17,6 +17,9 @@ EMBEDDING_DIM = settings.EMBED_DIM
 _BATCH_SIZE = 16
 _MAX_RETRIES = 3
 
+# Warn about embedding-dimension truncation only once per process.
+_DIM_WARNED = False
+
 
 def _fallback_embed(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
     vec = [0.0] * dim
@@ -54,8 +57,21 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
     results = []
     for item in data["data"]:
         emb = item.get("embedding", [])
+        # OpenRouter's nemotron-3-embed-1b returns 2048 dims; we store 1024 to
+        # match the local Nemotron-3-Embed-1B checkpoint and the vector(1024)
+        # column. Truncate + renormalize. Warn once, not per chunk (uploads
+        # embed hundreds of chunks and the per-item log swamped the output).
         if len(emb) != EMBEDDING_DIM:
-            logger.warning("Embedding dimension mismatch: expected %d, got %d", EMBEDDING_DIM, len(emb))
+            global _DIM_WARNED
+            if not _DIM_WARNED:
+                logger.warning(
+                    "Embedding dimension %d differs from configured %d; truncating. "
+                    "Set EMBED_DIM=%d to use the full vector.",
+                    len(emb),
+                    EMBEDDING_DIM,
+                    len(emb),
+                )
+                _DIM_WARNED = True
         vec = emb[:EMBEDDING_DIM]
         norm = sum(x * x for x in vec) ** 0.5
         if norm > 0:

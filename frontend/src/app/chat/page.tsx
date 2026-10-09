@@ -801,8 +801,10 @@ export default function ChatPage() {
         });
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        const msg = err instanceof Error ? err.message : "Request failed";
-        setError(msg);
+        // Log the real cause, but show a generic message: raw fetch and
+        // response-body errors can expose backend hostnames and DNS details.
+        console.error(err);
+        setError("Request failed. Please try again.");
         setMessages((prev) => {
           const copy = [...prev];
           const last = copy[copy.length - 1];

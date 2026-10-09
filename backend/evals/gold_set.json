@@ -1,0 +1,337 @@
+{
+  "_comment": "Gold set for retrieval evaluation. Gold chunks are resolved at eval time by searching anchor phrases inside chunk CONTENT (not section headings), because the PyMuPDF heading detector produces unreliable headings on real arXiv PDFs (Attention Is All You Need ingests as one 'Document Content' section; BERT yields numeric garbage headings). A chunk is gold if it contains ANY anchor. Section-agnostic and survives re-ingestion.",
+  "_note_papers": "Keys map to regex matched against the stored paper title, which is the arXiv stamp line (e.g. 'arXiv:1706.03762v7 [cs.CL] ...').",
+  "papers": {
+    "attention": "Attention Is All You Need",
+    "resnet": "Deep Residual Learning",
+    "bert": "BERT: Pre-training",
+    "adam": "^ADAM: A METHOD",
+    "rag": "^Retrieval-Augmented Generation"
+  },
+  "questions": [
+    {
+      "id": "attn-01",
+      "paper": "attention",
+      "question": "What is scaled dot-product attention?",
+      "anchors": [
+        "Scaled Dot-Product Attention",
+        "divide each by"
+      ]
+    },
+    {
+      "id": "attn-02",
+      "paper": "attention",
+      "question": "Why does the Transformer need positional encoding?",
+      "anchors": [
+        "inject some information about the relative or absolute position",
+        "Positional Encoding"
+      ]
+    },
+    {
+      "id": "attn-03",
+      "paper": "attention",
+      "question": "How does multi-head attention work?",
+      "anchors": [
+        "h times with different, learned linear projections",
+        "Multi-Head Attention"
+      ]
+    },
+    {
+      "id": "attn-04",
+      "paper": "attention",
+      "question": "What is the residual connection used for in the Transformer?",
+      "anchors": [
+        "residual connection",
+        "Residual connections"
+      ]
+    },
+    {
+      "id": "attn-05",
+      "paper": "attention",
+      "question": "What is the learning rate schedule used during training?",
+      "anchors": [
+        "lrate",
+        "learning rate schedule"
+      ]
+    },
+    {
+      "id": "attn-06",
+      "paper": "attention",
+      "question": "What regularization was used for the Transformer base model?",
+      "anchors": [
+        "label smoothing",
+        "Residual Dropout"
+      ]
+    },
+    {
+      "id": "attn-07",
+      "paper": "attention",
+      "question": "What is the computational complexity of the self-attention layer?",
+      "anchors": [
+        "self-attention layers",
+        "O(n2"
+      ]
+    },
+    {
+      "id": "attn-08",
+      "paper": "attention",
+      "question": "What is layer normalization in the Transformer?",
+      "anchors": [
+        "LayerNorm",
+        "layer normalization"
+      ]
+    },
+    {
+      "id": "resnet-01",
+      "paper": "resnet",
+      "question": "What is a residual block and how does the shortcut connection work?",
+      "anchors": [
+        "shortcut connection",
+        "residual block"
+      ]
+    },
+    {
+      "id": "resnet-02",
+      "paper": "resnet",
+      "question": "How does ResNet address the degradation problem in very deep networks?",
+      "anchors": [
+        "degradation",
+        "easier to optimize"
+      ]
+    },
+    {
+      "id": "resnet-03",
+      "paper": "resnet",
+      "question": "What is the shortcut connection formula?",
+      "anchors": [
+        "F(x) + x",
+        "y = F(x"
+      ]
+    },
+    {
+      "id": "resnet-04",
+      "paper": "resnet",
+      "question": "How does ResNet compare to plain networks on ImageNet?",
+      "anchors": [
+        "plain networks",
+        "deeper plain"
+      ]
+    },
+    {
+      "id": "resnet-05",
+      "paper": "resnet",
+      "question": "What is identity mapping and why is it important?",
+      "anchors": [
+        "identity mapping",
+        "identity shortcut"
+      ]
+    },
+    {
+      "id": "bert-01",
+      "paper": "bert",
+      "question": "What is masked language model pre-training?",
+      "anchors": [
+        "Masked LM",
+        "masked language model"
+      ]
+    },
+    {
+      "id": "bert-02",
+      "paper": "bert",
+      "question": "What is the next sentence prediction task?",
+      "anchors": [
+        "Next Sentence",
+        "next sentence prediction"
+      ]
+    },
+    {
+      "id": "bert-03",
+      "paper": "bert",
+      "question": "What are bidirectional transformer encoders?",
+      "anchors": [
+        "bidirectional",
+        "Bidirectional"
+      ]
+    },
+    {
+      "id": "bert-04",
+      "paper": "bert",
+      "question": "What are WordPiece embeddings and the input representation?",
+      "anchors": [
+        "WordPiece",
+        "input representation"
+      ]
+    },
+    {
+      "id": "bert-05",
+      "paper": "bert",
+      "question": "How large is BERT BASE in terms of layers and hidden size?",
+      "anchors": [
+        "BERTBASE",
+        "L=12",
+        "L = 12"
+      ]
+    },
+    {
+      "id": "bert-06",
+      "paper": "bert",
+      "question": "What pre-training data was used for BERT?",
+      "anchors": [
+        "BooksCorpus",
+        "Wikipedia"
+      ]
+    },
+    {
+      "id": "dpr-01",
+      "paper": "rag",
+      "question": "What is dense passage retrieval?",
+      "anchors": [
+        "dense passage retrieval",
+        "dense retriever"
+      ]
+    },
+    {
+      "id": "dpr-02",
+      "paper": "rag",
+      "question": "How are documents and queries encoded into vectors?",
+      "anchors": [
+        "bi-encoder",
+        "encoding documents and queries"
+      ]
+    },
+    {
+      "id": "dpr-03",
+      "paper": "rag",
+      "question": "How is top-k nearest neighbour search performed over passages?",
+      "anchors": [
+        "maximum inner product search",
+        "MIPS",
+        "nearest neighbor"
+      ]
+    },
+    {
+      "id": "adam-01",
+      "paper": "adam",
+      "question": "How does the Adam optimizer compute its moment estimates?",
+      "anchors": [
+        "first moment estimate",
+        "second raw moment estimate",
+        "ALGORITHM"
+      ]
+    },
+    {
+      "id": "adam-02",
+      "paper": "adam",
+      "question": "What is bias correction in Adam?",
+      "anchors": [
+        "INITIALIZATION BIAS CORRECTION",
+        "bias-corrected"
+      ]
+    },
+    {
+      "id": "adam-03",
+      "paper": "adam",
+      "question": "What is the per-parameter computational complexity of Adam?",
+      "anchors": [
+        "CONVERGENCE ANALYSIS",
+        "O(n)"
+      ]
+    },
+    {
+      "id": "rag-01",
+      "paper": "rag",
+      "question": "What is retrieval-augmented generation?",
+      "anchors": [
+        "Retrieval-Augmented Generation",
+        "parametric"
+      ]
+    },
+    {
+      "id": "rag-02",
+      "paper": "rag",
+      "question": "What is the RAG-Sequence generation approach?",
+      "anchors": [
+        "RAG-Sequence",
+        "sequence"
+      ]
+    },
+    {
+      "id": "rag-03",
+      "paper": "rag",
+      "question": "How does retrieval augmentation improve knowledge-intensive NLP tasks?",
+      "anchors": [
+        "knowledge-intensive",
+        "open-domain"
+      ]
+    },
+    {
+      "id": "rag-04",
+      "paper": "rag",
+      "question": "What are the parametric and non-parametric memories in RAG?",
+      "anchors": [
+        "non-parametric",
+        "parametric memory"
+      ]
+    }
+  ],
+  "followups": [
+    {
+      "id": "fu-attn-01",
+      "paper": "attention",
+      "history": [
+        [
+          "user",
+          "What is scaled dot-product attention?"
+        ],
+        [
+          "assistant",
+          "It computes dot products of query and keys, divides by sqrt(d_k), and softmaxes."
+        ]
+      ],
+      "question": "What about multi-head?",
+      "anchors": [
+        "h times with different, learned linear projections",
+        "Multi-Head Attention"
+      ]
+    },
+    {
+      "id": "fu-attn-02",
+      "paper": "attention",
+      "history": [
+        [
+          "user",
+          "What is residual dropout?"
+        ],
+        [
+          "assistant",
+          "It applies dropout to the output of each sub-layer before adding the residual."
+        ]
+      ],
+      "question": "Why is that needed?",
+      "anchors": [
+        "label smoothing",
+        "Residual Dropout"
+      ]
+    },
+    {
+      "id": "fu-resnet-01",
+      "paper": "resnet",
+      "history": [
+        [
+          "user",
+          "What problem do residual connections solve?"
+        ],
+        [
+          "assistant",
+          "They let very deep networks optimize without degradation in accuracy."
+        ]
+      ],
+      "question": "How is the shortcut implemented?",
+      "anchors": [
+        "shortcut connection",
+        "identity shortcut",
+        "projection shortcut"
+      ]
+    }
+  ]
+}

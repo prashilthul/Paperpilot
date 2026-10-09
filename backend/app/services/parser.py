@@ -22,8 +22,23 @@ _CITATION_RE = re.compile(
 # Heading detection helpers
 # ---------------------------------------------------------------------------
 _HEADING_NUMBERED = re.compile(r"^(?:[1-9]\d*|[IVXLCDM]+)\s*\.[\s]")
+
+# arXiv/LaTeX papers are typeset without a space between the section number and
+# its title ("1Introduction", "3.2.1Scaled Dot-Product Attention"), and often
+# without the trailing dot ("2Background"). The patterns above miss both, so
+# headings fall through to the generic font-size test and whole papers collapse
+# into a single "Document Content" section. Match the tightest shape first.
+_HEADING_NUMBERED_TIGHT = re.compile(r"^\d{1,2}\.\d{1,2}(\.\d{1,2})*[A-Z][A-Za-z]")
+_HEADING_NUMBERED_BARE = re.compile(r"^(?:[1-9]\d{0,2}|[IVXLCDM]{1,7})\.?\s*[A-Z][A-Za-z]")
 _HEADING_SUBNUMBERED = re.compile(r"^[1-9]\d*(?:\.[1-9]\d*)+\s+")
 _HEADING_ALL_CAPS = re.compile(r"^[A-Z][A-Z\s/]{3,}$")
+
+# Bare page numbers ("3", "42") are page furniture, not headings.
+_PAGE_NUMBER_ONLY = re.compile(r"^[0-9]{1,4}$")
+
+# Text that is mostly digits/punctuation is layout noise from two-column LaTeX
+# PDFs (equation fragments, table cells, page furniture), never a heading.
+_GARBAGE_RATIO = re.compile(r"[0-9\s\W_]")
 
 _COMMON_HEADINGS = {
     "abstract",
@@ -63,6 +78,17 @@ class _Block:
         self.page_num = page_num
 
 
+# Control characters that Postgres UTF8 rejects outright (notably NUL, 0x00).
+# Some arXiv PDFs embed these in text-layer fragments; without stripping them
+# the insert fails with CharacterNotInRepertoireError and the upload 500s.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _sanitize(text: str) -> str:
+    """Strip control characters Postgres cannot store, preserving tab/newline."""
+    return _CONTROL_CHARS_RE.sub("", text)
+
+
 def _extract_blocks(doc: fitz.Document) -> list[_Block]:
     blocks: list[_Block] = []
     for page in doc:
@@ -81,7 +107,7 @@ def _extract_blocks(doc: fitz.Document) -> list[_Block]:
                     font = (span.get("font") or "").lower()
                     if "bold" in font or "heavy" in font or "black" in font:
                         has_bold = True
-            text = "".join(text_parts).strip()
+            text = _sanitize("".join(text_parts)).strip()
             if not text:
                 continue
             blocks.append(_Block(text, max_size, has_bold, page.number))
@@ -98,16 +124,50 @@ def _body_font_size(blocks: list[_Block]) -> float:
 # ---------------------------------------------------------------------------
 
 
+def _looks_like_garbage(text: str) -> bool:
+    """True if text is predominantly non-alphabetic layout noise."""
+    letters = sum(1 for c in text if c.isalpha())
+    if letters < 3:
+        return True
+    return letters / len(text) < 0.5
+
+
 def _is_heading(block: _Block, body_size: float, threshold: float) -> bool:
     text = block.text.strip()
     if not text or len(text) < 2:
         return False
 
+    # Bare page numbers are furniture.
+    if _PAGE_NUMBER_ONLY.match(text):
+        return False
+
+    # A heading must contain real words. Two-column LaTeX PDFs emit blocks of
+    # bare numbers and math fragments (table cells, equation pieces) that
+    # otherwise match the numbered/caps patterns and pollute the hierarchy.
+    if _looks_like_garbage(text):
+        return False
+
+    # Tightest structural signal: numbered heading typeset with no space
+    # ("3.2.1Scaled Dot-Product Attention"). Reliable, so accept on structure.
+    if _HEADING_NUMBERED_TIGHT.match(text) and len(text) < 100:
+        return True
+
     if _HEADING_NUMBERED.match(text):
         return True
+
     if _HEADING_SUBNUMBERED.match(text):
         return True
-    if _HEADING_ALL_CAPS.match(text):
+
+    # "1Introduction" / "2 Background" -- require a slightly larger font too, so
+    # inline numeric references inside body text ("2.1 Section") don't match.
+    if (
+        _HEADING_NUMBERED_BARE.match(text)
+        and len(text) < 90
+        and block.font_size >= body_size * 1.05
+    ):
+        return True
+
+    if _HEADING_ALL_CAPS.match(text) and len(text) < 90:
         return True
 
     if text.lower().rstrip(".:") in _COMMON_HEADINGS:
@@ -127,12 +187,21 @@ def _is_heading(block: _Block, body_size: float, threshold: float) -> bool:
 # ---------------------------------------------------------------------------
 
 
+_ARXIV_STAMP = re.compile(r"^arXiv:\d{4}\.\d{4,5}v\d+", re.IGNORECASE)
+
+
 def _extract_title(blocks: list[_Block]) -> str:
     first_page = [b for b in blocks if b.page_num == 0]
     if not first_page:
         return "Untitled"
 
-    candidate = max(first_page, key=lambda b: b.font_size)
+    # arXiv PDFs carry a vertical margin stamp ("arXiv:1810.04805v2 [cs.CL] ...")
+    # rendered in the page's largest font. Skip those so the real title wins.
+    candidates = [b for b in first_page if not _ARXIV_STAMP.match(b.text.strip())]
+    if not candidates:
+        candidates = first_page
+
+    candidate = max(candidates, key=lambda b: b.font_size)
     title = candidate.text.strip()
     return title if len(title) > 3 else "Untitled"
 
@@ -147,7 +216,13 @@ def _extract_authors(blocks: list[_Block]) -> tuple[list[str], int]:
     if not first_page_blocks:
         return [], 0
 
-    title_block = max(first_page_blocks, key=lambda b: b.font_size)
+    # Mirror _extract_title's arXiv-stamp filter so we search for the abstract
+    # relative to the real title, not the margin stamp.
+    candidates = [b for b in first_page_blocks if not _ARXIV_STAMP.match(b.text.strip())]
+    if not candidates:
+        candidates = first_page_blocks
+
+    title_block = max(candidates, key=lambda b: b.font_size)
     title_idx = blocks.index(title_block)
 
     abstract_idx = -1
@@ -200,6 +275,7 @@ def _extract_abstract(blocks: list[_Block], start_idx: int, body_size: float = 1
 
 
 def _section_level(text: str, font_size: float, body_size: float) -> int:
+    # Matches both "3.2.1 Attention" and "3.2.1Attention".
     numbered = re.match(r"^(\d+(?:\.\d+)*)", text)
     if numbered:
         dots = numbered.group(1).count(".")
@@ -263,6 +339,46 @@ def _extract_sections(blocks: list[_Block], body_size: float, threshold: float, 
 # ---------------------------------------------------------------------------
 # Citation extraction
 # ---------------------------------------------------------------------------
+
+
+def _drop_title_echo_sections(sections: list[SectionSchema], title: str) -> list[SectionSchema]:
+    """Remove front-matter sections that merely echo the paper title.
+
+    Two-column LaTeX PDFs repeat the title/author block mid-page, which the
+    heading detector picks up as short all-caps "sections" (e.g. "BERT",
+    "BERTBERT", "NERMNLI" in the BERT paper). These carry no topical content, so
+    folding them into the preceding section avoids polluting the hierarchy.
+    A heading is treated as a title echo when its alphanumeric-normalised form
+    is a substring of the title's normalised form (covers the full title and
+    repeated-word fragments like "BERT" inside "BERTBERT").
+    """
+    if not title or title == "Untitled":
+        return sections
+
+    key = re.sub(r"[^a-z0-9]", "", title.lower())
+    if not key:
+        return sections
+
+    cleaned: list[SectionSchema] = []
+    for sec in sections:
+        heading_key = re.sub(r"[^a-z0-9]", "", sec.heading.lower())
+        is_echo = bool(heading_key) and heading_key in key
+        # Also treat very short (<=4 char, e.g. an acronym repeated in the
+        # title block) all-caps headings as front-matter noise when they are not
+        # a numbered section.
+        is_acronym_echo = (
+            len(heading_key) <= 4
+            and heading_key.isalpha()
+            and heading_key in key
+            and not _HEADING_NUMBERED_BARE.match(sec.heading.strip())
+        )
+        if (is_echo or is_acronym_echo) and len(sec.content) < 2000:
+            if cleaned:
+                cleaned[-1].content = f"{cleaned[-1].content}\n{sec.content}"
+            continue
+        cleaned.append(sec)
+
+    return cleaned or sections
 
 
 def _extract_citations(text: str) -> list[CitationSchema]:
@@ -386,6 +502,7 @@ def parse_pdf(file_path: str | Path | None = None, *, stream: bytes | None = Non
                     break
 
         sections = _extract_sections(blocks, body_size, threshold, abstract_end)
+        sections = _drop_title_echo_sections(sections, title)
         if sections and title and title != "Untitled":
             if title.lower() not in sections[0].content.lower():
                 sections[0].content = f"{title}\n{sections[0].content}"

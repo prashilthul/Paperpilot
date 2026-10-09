@@ -1,0 +1,9 @@
+# Non-default port mapping, used only when port 3000 is already taken on the host.
+# Apply explicitly:
+#   docker compose -f docker-compose.yml -f docker-compose.ports.yml up -d
+#
+# The frontend is then reachable at http://localhost:3001
+services:
+  frontend:
+    ports: !override
+      - "3001:3000"

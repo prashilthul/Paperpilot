@@ -823,7 +823,10 @@ export default function DashboardPage() {
         // endpoint not available yet
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load metrics");
+      // Surface a generic message: raw fetch errors can embed backend
+      // hostnames and DNS details (e.g. DNS_HOSTNAME_NOT_FOUND).
+      console.error(err);
+      setError("Failed to load metrics. Please try again.");
     } finally {
       setLoading(false);
     }

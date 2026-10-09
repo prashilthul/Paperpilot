@@ -107,6 +107,31 @@ The platform includes dual evaluation pipelines to track grounding and retrieval
   * **Context Precision**: Signal-to-noise ratio in top-ranked chunks.
   * **Context Recall**: Ground-truth coverage across retrieved chunks.
 
+#### Retrieval Ablation (measured)
+
+Ranking quality of the retrieval stages, scored against a hand-labelled gold set of 20 questions over 4 arXiv papers (Attention, ResNet, BERT, and arXiv 2010.05425, "FPRAS via MCMC"). Gold chunks are matched by anchor phrases in chunk content, not by section headings. Scoring is pure ranking arithmetic: no generation and no LLM judge.
+
+| Config | Recall@5 | Recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|
+| Dense only (pgvector) | 0.391 | 0.603 | 0.741 | 0.618 |
+| Hybrid (dense + FTS, RRF k=60) | 0.474 | 0.660 | 0.721 | 0.637 |
+| Hybrid + cross-encoder rerank | **0.522** | **0.695** | **0.762** | **0.684** |
+
+- Hybrid over dense: +8.3 points Recall@5.
+- Rerank over hybrid: +4.8 points Recall@5 and +4.7 points nDCG@10.
+- Rerank over dense: +13.1 points Recall@5, a 33% relative gain.
+
+Caveats:
+- Small corpus (about 360 chunks across 4 papers) and 20 questions. Treat the deltas as directional, not as a benchmark score.
+- These numbers predate the PDF parser fixes (heading detection and NUL-byte handling), so they reflect the earlier chunking. A re-run on the current corpus is pending.
+- Reranker and embeddings use OpenRouter free-tier models. Daily quota exhaustion silently falls back to hash embeddings, so results are only valid from runs made under quota.
+
+Reproduce (inside the backend container, after ingesting the papers in `backend/evals/papers/`):
+
+```bash
+docker compose exec backend sh -c "PYTHONPATH=. uv run python scripts/eval_retrieval.py --configs vector_only,hybrid,hybrid_rerank --top-k 20"
+```
+
 ### 3. Telemetry & Execution Tracing
 Every request records OpenTelemetry-style execution spans (`embed`, `query_rewrite`, `vector_search`, `lexical_search`, `rerank`, `generate`, `judge`). Spans capture timing, token counts, and retrieval scores, feeding directly into the **Trace Inspector** waterfall view and operational **Dashboard KPIs**.
 
